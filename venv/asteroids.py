@@ -8,10 +8,13 @@ from pyglet import gl
 # CONSTANTS
 WIDTH = 800
 HEIGHT = 600
+
 ROTATION_SPEED = 100
 ACCELERATION = 100
+SPACESHIP_RADIUS = 45
 
 ASTEROID_MAX_SPEED = 200
+ASTEROID_RADIUSES = {1: 7, 2: 11, 3: 19, 4: 42}
 
 # IMAGES
 def load_image(filename):
@@ -21,6 +24,7 @@ def load_image(filename):
     return image
 
 spaceship_img = load_image('Include/PNG/playerShip2_red.png')
+
 asteroid_imgs = {
     1:  [load_image('Include/PNG/Meteors/meteorBrown_tiny1.png'),
          load_image('Include/PNG/Meteors/meteorBrown_tiny2.png'),
@@ -49,14 +53,44 @@ main_batch = pyglet.graphics.Batch()
 pressed_keys = set()
 objects = []
 
+# temporary
+def draw_circle(x, y, radius):
+    iterations = 20
+    s = math.sin(2*math.pi / iterations)
+    c = math.cos(2*math.pi / iterations)
+
+    dx, dy = radius, 0
+
+    gl.glBegin(gl.GL_LINE_STRIP)
+    for i in range(iterations+1):
+        gl.glVertex2f(x+dx, y+dy)
+        dx, dy = (dx*c - dy*s), (dy*c + dx*s)
+    gl.glEnd()
+#
+
+# static functions
+def distance(a, b, dimension_size):
+    dist = abs(a - b)
+    if dist > dimension_size / 2:
+        dist = dimension_size - dist
+    return dist
+
+def is_Overlapped(obj1, obj2):
+    obj2obj_distance = (distance(obj1.x, obj2.x, window.width) ** 2 +
+                       distance(obj1.y, obj2.y, window.height) ** 2)
+    contact_distance = (obj1.radius + obj2.radius) ** 2
+    return obj2obj_distance < contact_distance
+#
+
 class SpaceObject:
-    def __init__(self, window, image, x, y, x_speed = 0, y_speed = 0,
+    def __init__(self, window, image, x, y, radius, x_speed = 0, y_speed = 0,
                 rotation = 0, batch = main_batch):
         self.x = x
         self.y = y
         self.x_speed = x_speed
         self.y_speed = y_speed
         self.rotation = rotation
+        self.radius = radius
         self.sprite = pyglet.sprite.Sprite(image, batch = batch)
         self.window = window
 
@@ -77,11 +111,15 @@ class SpaceObject:
         if self.y > self.window.height:
             self.y -= self.window.height
 
+    def spaceship_colision(self, spaceship):
+        return
+
 class Spaceship(SpaceObject):
     def __init__(self, window, rotation = 0):
         super().__init__(window = window,
                          image = spaceship_img,
-                         rotation = rotation,
+                         rotation = random.uniform(0, 360),
+                         radius = SPACESHIP_RADIUS,
                          x = window.width / 2,
                          y = window.height / 2,
                          )
@@ -107,6 +145,10 @@ class Spaceship(SpaceObject):
 
         super().tick(dt)
 
+        for obj in objects:
+            if is_Overlapped(obj, self):
+                obj.spaceship_colision(self)
+
 class Asteroid(SpaceObject):
     def __init__(self, window, size):
         # choose starting position
@@ -120,6 +162,7 @@ class Asteroid(SpaceObject):
 
         img = random.choice(asteroid_imgs[size])
         super().__init__(window = window,
+                         radius = ASTEROID_RADIUSES[size],
                          image = img,
                          x = x,
                          y = y,
@@ -128,6 +171,10 @@ class Asteroid(SpaceObject):
                          y_speed = random.uniform(-ASTEROID_MAX_SPEED,
                                                   ASTEROID_MAX_SPEED),
                          )
+
+    def spaceship_colision(self, spaceship):
+        spaceship.delete()
+
 
 def key_pressed(key, mod):
     pressed_keys.add(key)
@@ -146,10 +193,10 @@ def draw():
 
             # Draw
             main_batch.draw()
-
+            for obj in objects:
+                draw_circle(obj.x, obj.y, obj.radius)
             # Restore remembered state (this cancels the glTranslatef)
             gl.glPopMatrix()
-
 
 def tick(dt):
     for obj in objects:

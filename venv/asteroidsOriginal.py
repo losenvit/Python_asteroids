@@ -417,6 +417,8 @@ def draw():
             gl.glPushMatrix()
             gl.glTranslatef(x_offset, y_offset, 0)
             main_batch.draw()
+            for obj in objects:
+                circle(obj.x, obj.y, obj.radius)
             gl.glPopMatrix()
 
     for i in range(ship.lives):
